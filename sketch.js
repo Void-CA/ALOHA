@@ -1,5 +1,6 @@
 let packets = [];
 let nodeTimers = [0, 0, 0, 0, 0]; // Tiempos para el siguiente intento
+let lastTransmittedSlot = [0, 0, 0, 0, 0]; // Último slot transmitido para SLOTTED
 let sliderN, sliderP, btnMode;
 let isSlotted = false;
 let stats = {
@@ -11,6 +12,7 @@ let stats = {
 const LANES = 5;
 const LANE_HEIGHT = 50;
 const PACKET_WIDTH = 60;
+const SLOT_DURATION = 1000; // Duración de cada slot en ms
 
 function setup() {
   let canvas = createCanvas(800, 500);
@@ -37,19 +39,20 @@ function draw() {
 
   // 1. Intentar generar paquetes
   for (let i = 0; i < activeNodes; i++) {
-    if (millis() > nodeTimers[i]) {
-      if (random() < prob) {
+    if (isSlotted) {
+      let currentSlot = floor(millis() / SLOT_DURATION);
+      if (currentSlot > lastTransmittedSlot[i] && random() < prob) {
         let spawnX = width;
-        
-        // Si es Slotted, alineamos el inicio al "slot" más cercano a la derecha
-        if (isSlotted) {
-          let slotSize = PACKET_WIDTH + 20;
-          spawnX = ceil(width / slotSize) * slotSize;
-        }
-
         packets.push(new Packet(i, spawnX, PACKET_WIDTH));
-        
-        // Tiempo aleatorio de espera (Backoff)
+        lastTransmittedSlot[i] = currentSlot;
+        // Backoff: esperar algunos slots aleatorios
+        let backoffSlots = floor(random(1, 4));
+        nodeTimers[i] = (currentSlot + backoffSlots + 1) * SLOT_DURATION;
+      }
+    } else {
+      if (millis() > nodeTimers[i] && random() < prob) {
+        let spawnX = width;
+        packets.push(new Packet(i, spawnX, PACKET_WIDTH));
         nodeTimers[i] = millis() + random(1000, 3000);
       }
     }
@@ -120,6 +123,17 @@ function drawInterface() {
       textSize(14);
       text("Nodo " + char(65 + i), 10, y + 30);
     }
+  }
+
+  // Dibujar slots verticales si es SLOTTED
+  if (isSlotted) {
+    let slotSize = PACKET_WIDTH + 20;
+    stroke(150, 150, 150, 100);
+    drawingContext.setLineDash([2, 2]);
+    for (let x = 50; x < width; x += slotSize) {
+      line(x, 110, x, 110 + LANES * LANE_HEIGHT);
+    }
+    drawingContext.setLineDash([]);
   }
 
   // Títulos y estado
