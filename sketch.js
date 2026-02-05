@@ -1,32 +1,28 @@
 let packets = [];
-let nodeTimers = [0, 0, 0, 0, 0]; // Tiempos para el siguiente intento
-let lastTransmittedSlot = [0, 0, 0, 0, 0]; // Último slot transmitido para SLOTTED
+let pendingPackets = []; // Buffer para Slotted ALOHA
+let nodeTimers = [0, 0, 0, 0, 0]; 
+let stats = { success: 0, collision: 0, totalSent: 0 };
+
 let sliderN, sliderP, btnMode;
 let isSlotted = false;
-let stats = {
-  success: 0,
-  collision: 0,
-  totalSent: 0,
-  efficiencyHistory: []
-};
+
 const LANES = 5;
 const LANE_HEIGHT = 50;
 const PACKET_WIDTH = 60;
-const SLOT_DURATION = 1000; // Duración de cada slot en ms
+const SLOT_DURATION = 1000; // 1 segundo por slot
 
 function setup() {
-  let canvas = createCanvas(800, 500);
+  let canvas = createCanvas(800, 550);
   canvas.parent('canvas-parent');
 
-  // Sliders
-  sliderN = createSlider(1, 5, 5, 1); // Número de nodos activos
-  sliderP = createSlider(0.005, 0.05, 0.02, 0.005); // Probabilidad de envío
-
+  sliderN = createSlider(1, 5, 5, 1);
+  sliderP = createSlider(0.01, 0.1, 0.03, 0.005);
+  
   btnMode = createButton('Cambiar a SLOTTED');
   btnMode.mousePressed(() => {
     isSlotted = !isSlotted;
     btnMode.html(isSlotted ? 'Cambiar a PURE' : 'Cambiar a SLOTTED');
-    packets = []; // Reiniciar para ver el cambio
+    resetStats();
   });
 }
 
@@ -34,60 +30,32 @@ function draw() {
   background(245);
   drawInterface();
 
-  let activeNodes = sliderN.value();
-  let prob = sliderP.value();
-
-  // 1. Intentar generar paquetes
-  for (let i = 0; i < activeNodes; i++) {
-    if (isSlotted) {
-      let currentSlot = floor(millis() / SLOT_DURATION);
-      if (currentSlot > lastTransmittedSlot[i] && random() < prob) {
-        let spawnX = width;
-        packets.push(new Packet(i, spawnX, PACKET_WIDTH));
-        lastTransmittedSlot[i] = currentSlot;
-        // Backoff: esperar algunos slots aleatorios
-        let backoffSlots = floor(random(1, 4));
-        nodeTimers[i] = (currentSlot + backoffSlots + 1) * SLOT_DURATION;
-      }
-    } else {
-      if (millis() > nodeTimers[i] && random() < prob) {
-        let spawnX = width;
-        packets.push(new Packet(i, spawnX, PACKET_WIDTH));
-        nodeTimers[i] = millis() + random(1000, 3000);
-      }
-    }
-  }
-
-  // 2. Detección de Colisiones
-  checkCollisions();
-
-  for (let i = packets.length - 1; i >= 0; i--) {
-    let p = packets[i];
-    p.update(2);
-    p.draw(120 + p.nodeId * LANE_HEIGHT);
-    
-    if (p.finished) {
-      stats.totalSent++;
-      if (p.isCorrupt) {
-        stats.collision++;
+  let N = sliderN.value();
+  let P = sliderP.value();
+  
+  // LÓGICA DE GENERACIÓN
+  for (let i = 0; i < N; i++) {
+    if (millis() > nodeTimers[i] && random() < P) {
+      let newP = new Packet(i, width, PACKET_WIDTH);
+      if (isSlotted) {
+        pendingPackets.push(newP); // Espera al inicio del slot
       } else {
-        stats.success++;
+        packets.push(newP); // Sale inmediatamente
       }
-      packets.splice(i, 1);
+      nodeTimers[i] = millis() + random(1500, 4000); // Backoff aleatorio
     }
   }
-  
-  drawMetrics(); // Llamar a la función de métricas
 
-  // 3. Actualizar y Dibujar
-  for (let i = packets.length - 1; i >= 0; i--) {
-    let p = packets[i];
-    p.update(2); // Velocidad de la animación
-    p.draw(120 + p.nodeId * LANE_HEIGHT);
-    
-    if (p.finished) packets.splice(i, 1);
+  // SINCRONIZACIÓN SLOTTED (Cada vez que el tiempo cumple un slot)
+  if (isSlotted && frameCount % floor(SLOT_DURATION / 16.6) === 0) {
+    while(pendingPackets.length > 0) {
+      packets.push(pendingPackets.pop());
+    }
   }
-  
+
+  checkCollisions();
+  updatePackets();
+  drawMetrics();
 }
 
 function checkCollisions() {
@@ -96,89 +64,85 @@ function checkCollisions() {
       let p1 = packets[i];
       let p2 = packets[j];
 
-      // Si hay traslape en el eje X (tiempo)
+      // Detección de traslape en eje X (Tiempo de vulnerabilidad)
       if (p1.x < p2.x + p2.w && p1.x + p1.w > p2.x) {
         p1.isCorrupt = true;
         p2.isCorrupt = true;
         
-        // Dibujar línea de "Botsing" como en tu imagen
-        stroke(255, 0, 0, 100);
+        // Líneas punteadas de "Botsing"
+        stroke(255, 0, 0, 80);
         drawingContext.setLineDash([5, 5]);
-        line(p1.x, 100, p1.x, 400);
+        line(max(p1.x, p2.x), 100, max(p1.x, p2.x), 380);
         drawingContext.setLineDash([]);
       }
     }
   }
 }
 
+function updatePackets() {
+  for (let i = packets.length - 1; i >= 0; i--) {
+    let p = packets[i];
+    p.update(2);
+    p.draw(120 + p.nodeId * LANE_HEIGHT);
+    
+    if (p.finished) {
+      stats.totalSent++;
+      if (p.isCorrupt) stats.collision++;
+      else stats.success++;
+      packets.splice(i, 1);
+    }
+  }
+}
+
 function drawInterface() {
-  // Dibujar carriles
+  // Carriles
   stroke(200);
   for (let i = 0; i <= LANES; i++) {
     let y = 110 + i * LANE_HEIGHT;
     line(50, y, width, y);
     if (i < LANES) {
-      fill(80);
-      noStroke();
-      textSize(14);
+      fill(100); noStroke();
       text("Nodo " + char(65 + i), 10, y + 30);
     }
   }
 
-  // Dibujar slots verticales si es SLOTTED
+  // Rejilla de Slots (Si es Slotted)
   if (isSlotted) {
-    let slotSize = PACKET_WIDTH + 20;
-    stroke(150, 150, 150, 100);
-    drawingContext.setLineDash([2, 2]);
-    for (let x = 50; x < width; x += slotSize) {
-      line(x, 110, x, 110 + LANES * LANE_HEIGHT);
+    stroke(180, 180, 255, 100);
+    for (let x = width; x > 0; x -= PACKET_WIDTH + 10) {
+      line(x, 110, x, 360);
     }
-    drawingContext.setLineDash([]);
   }
 
-  // Títulos y estado
-  fill(0);
-  textSize(20);
-  text(isSlotted ? "Protocolo: SLOTTED ALOHA" : "Protocolo: PURE ALOHA", 250, 40);
+  fill(0); textSize(18); textAlign(CENTER);
+  text(isSlotted ? "MODO: SLOTTED ALOHA (Sincronizado)" : "MODO: PURE ALOHA (Asíncrono)", width/2, 40);
   
-  textSize(12);
-  text("Tiempo —>", width - 80, 420);
-  stroke(0);
-  line(50, 410, width - 20, 410);
+  stroke(0); line(50, 400, width-20, 400);
+  fill(0); textSize(12); text("Tiempo", width - 80, 415);
 }
 
 function drawMetrics() {
-  let x = 50;
-  let y = 440;
-  let barWidth = 150;
-
-  // Fondo del panel de métricas
-  fill(255);
-  stroke(200);
-  rect(x - 10, y - 20, 710, 70, 5);
-
-  // Calcular eficiencia actual
-  let efficiency = stats.totalSent > 0 ? (stats.success / stats.totalSent) : 0;
+  let y = 460;
+  fill(255); stroke(200); rect(40, y, 720, 70, 10);
   
-  // Métrica 1: Éxitos vs Colisiones
-  noStroke();
-  fill(0);
-  textAlign(LEFT);
-  textSize(12);
-  text(`Éxitos: ${stats.success}`, x, y);
-  text(`Colisiones: ${stats.collision}`, x, y + 20);
+  let eff = stats.totalSent > 0 ? (stats.success / stats.totalSent) : 0;
+  let G = sliderN.value() * sliderP.value() * 5; // Carga normalizada
 
-  // Métrica 2: Barra de Eficiencia
-  text(`Eficiencia Real: ${(efficiency * 100).toFixed(1)}%`, x + 120, y);
-  fill(200);
-  rect(x + 120, y + 8, barWidth, 10);
-  fill(efficiency > 0.3 ? '#4CAF50' : '#FF9800'); // Verde si es alta, naranja si es baja
-  rect(x + 120, y + 8, barWidth * (efficiency / 0.4), 10); // Normalizado a 40% max
-
-  // Métrica 3: Carga del sistema (G)
-  let G = sliderN.value() * sliderP.value() * 10; // G relativo a la ventana de tiempo
-  text(`Carga del Canal (G): ${G.toFixed(2)}`, x + 300, y);
+  noStroke(); fill(0); textAlign(LEFT);
+  text(`Paquetes Procesados: ${stats.totalSent}`, 60, y + 25);
+  text(`Éxitos: ${stats.success} | Colisiones: ${stats.collision}`, 60, y + 50);
   
-  // Métrica 4: Consejo dinámico
-  fill(80);
+  text(`Carga (G): ${G.toFixed(2)}`, 300, y + 25);
+  text(`Eficiencia Real (S): ${(eff * 100).toFixed(1)}%`, 300, y + 50);
+
+  // Gráfico de barra de eficiencia
+  fill(230); rect(500, y + 35, 200, 15);
+  fill(eff > 0.18 ? (isSlotted ? '#4CAF50' : '#FF9800') : '#F44336');
+  rect(500, y + 35, min(200 * (eff / 0.4), 200), 15);
+}
+
+function resetStats() {
+  stats = { success: 0, collision: 0, totalSent: 0 };
+  packets = [];
+  pendingPackets = [];
 }

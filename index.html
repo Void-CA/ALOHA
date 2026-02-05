@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>ALOHA Simulation - Botsing Model</title>
+  <meta charset="UTF-8">
+  <title>Simulación ALOHA - Botsing</title>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
   <style>
-    body { font-family: sans-serif; background: #eee; display: flex; flex-direction: column; align-items: center; }
-    #controls { background: #fff; padding: 15px; border-radius: 8px; margin: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; gap: 20px; }
-    .param { display: flex; flex-direction: column; font-size: 12px; font-weight: bold; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f0f0; display: flex; flex-direction: column; align-items: center; }
+    #controls { background: white; padding: 20px; border-radius: 12px; display: flex; gap: 30px; margin: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .slider-box { display: flex; flex-direction: column; align-items: center; font-size: 13px; color: #555; }
+    button { padding: 10px 20px; cursor: pointer; background: #2196F3; color: white; border: none; border-radius: 5px; font-weight: bold; }
+    button:hover { background: #1976D2; }
   </style>
 </head>
 <body>
-  <h2>Visualizador de Colisiones ALOHA</h2>
+  <h2>Análisis de Protocolos ALOHA</h2>
   <div id="controls">
-    <div class="param">Nodos Activos<div id="n-slider"></div></div>
-    <div class="param">Prob. Envío (Carga)<div id="p-slider"></div></div>
-    <div id="mode-btn"></div>
+    <div class="slider-box">Nodos Activos (N)<div id="n-cnt"></div></div>
+    <div class="slider-box">Intensidad de Tráfico (p)<div id="p-cnt"></div></div>
+    <div id="mode-cnt"></div>
   </div>
   <div id="canvas-parent"></div>
 
@@ -23,9 +25,9 @@
   <script src="sketch.js"></script>
   <script>
     window.onload = () => {
-      sliderN.parent('n-slider');
-      sliderP.parent('p-slider');
-      btnMode.parent('mode-btn');
+      sliderN.parent('n-cnt');
+      sliderP.parent('p-cnt');
+      btnMode.parent('mode-cnt');
     };
   </script>
 </body>

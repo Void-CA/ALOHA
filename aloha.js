@@ -5,7 +5,6 @@ class Packet {
     this.w = duration;
     this.isCorrupt = false;
     this.finished = false;
-    this.color = [255, 255, 255]; // Blanco por defecto
   }
 
   update(speed) {
@@ -18,10 +17,10 @@ class Packet {
     strokeWeight(1);
     
     if (this.isCorrupt) {
-      // Color de colisión (rojo suave con sombreado gris)
-      fill(200, 50, 50);
+      fill(200, 50, 50); // Rojo de colisión
       rect(this.x, laneY, this.w, 25);
-      fill(100, 100, 100, 150);
+      // Sombreado interno gris (como en tu imagen)
+      fill(100, 100, 100, 180);
       rect(this.x + 5, laneY + 5, this.w - 10, 15);
     } else {
       fill(255);
