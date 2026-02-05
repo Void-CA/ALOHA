@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>ALOHA Simulation - Botsing Model</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #eee; display: flex; flex-direction: column; align-items: center; }
+    #controls { background: #fff; padding: 15px; border-radius: 8px; margin: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; gap: 20px; }
+    .param { display: flex; flex-direction: column; font-size: 12px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Visualizador de Colisiones ALOHA</h2>
+  <div id="controls">
+    <div class="param">Nodos Activos<div id="n-slider"></div></div>
+    <div class="param">Prob. Envío (Carga)<div id="p-slider"></div></div>
+    <div id="mode-btn"></div>
+  </div>
+  <div id="canvas-parent"></div>
+
+  <script src="aloha.js"></script>
+  <script src="sketch.js"></script>
+  <script>
+    window.onload = () => {
+      sliderN.parent('n-slider');
+      sliderP.parent('p-slider');
+      btnMode.parent('mode-btn');
+    };
+  </script>
+</body>
+</html>
